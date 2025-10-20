@@ -1,0 +1,63 @@
+---
+title: "inferencias Vector de medias"
+author: "Roberto Duarte"
+date: "2025-10-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Inferencias sobre el vector de medias
+#### Ejemplo 1
+
+```{r, echo=F}
+data<-data.frame(x=c(6,10,8),
+                 y=c(9,6,3))
+n<-3
+p<-2
+alpha<-0.05
+mu0<-c(9,5)
+
+```
+
+Queremos contrastar las hipótesis:
+
+$H_0:\boldsymbol{\mu}=(9,5)^t$ vs $H_1:\boldsymbol{\mu}\neq(9,5)^t$
+
+Calculamos el vector de medias y la matriz de varianza y covarianza
+
+```{r}
+xbar<- colMeans(data)
+xbar
+S<- cov(data)
+S
+```
+Calculamos la estadística de prueba $T^2$
+
+```{r}
+T2<-n*t(xbar-mu0)%*%solve(S)%*%(xbar-mu0)
+T2
+```
+
+La estadística de prueba es `r T2`, ahora necesitamos calcular el percentil de la distribucioón T de Hotelling
+
+```{r}
+Tc<-(n-1)*p/(n-p)*qf(alpha,p,n-p, lower.tail = F)
+Tc
+```
+
+El valor crítico de la distribución es `r Tc`, notemos que 7/9<798 por lo tanto no podemos rechazar la hipótesis nula.
+
+
+## Elipse de confianza
+```{r}
+#install.packages(ellipse)
+plot(ellipse::ellipse(S, centre=xbar,t=sqrt(Tc/n)),type="l")
+points(x=9, y=5)
+
+```
+
+
+
