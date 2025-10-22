@@ -1,0 +1,134 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+El archivo college.csv contiene las puntuaciones de el examen de admisión a una universidad de 88 candidatos, las variables medidas fueron las puntuaciones obtenidas en Ciencias sociales e Historia Verbal, Ciencias.
+
+```{r}
+college <- read.csv("https://raw.githubusercontent.com/rcduarte01/REPOMETODOS/main/college.csv")
+n <- 88
+p <- 3
+college
+```
+
+Estamos asumiendo normalidad multivariada
+
+$\mu_1$: El puntaje promedio poblacional en ciencias sociales e Historia.
+
+$\mu_2$: El puntaje promedio poblacional en la prueba verbal.
+
+$\mu_3$: El puntaje promedio poblacional en la prueba de ciencias.
+
+El objetivo es costruir intervalos de confianza para $\mu_1,\mu_2$ y $\mu_3$ de forma simultanea.
+
+Tenemos 3 opciones
+
+- Intervalos de confianza simultaneos con $T^2$ de Hotelling
+
+- Intervalos de confianza simultaneos con t-student.
+
+- Intervalos de confianza simultaneos con Bonferroni
+
+
+Vamos a construir las elipses de confianza 2 a 2
+```{r}
+xbar <- colMeans(college)
+xbar
+S <- cov(college)
+S
+```
+
+La ecuación general de una elipse de forma matricial es
+
+\[
+X^t A X < c
+\]
+
+```{r}
+library(ellipse)
+alpha <- 0.05
+c <- sqrt((p*(n-1)/(n-p))*qf(alpha,p,n-p, lower.tail = F))
+
+plot(ellipse::ellipse(S[1:2,1:2],
+                      centre=c(xbar[1],xbar[2]),
+                      t=c/sqrt(n)),
+     type="l",xlab="Ciencias sociales e Historia ",
+     ylab="Prueba Verbal")
+
+plot(ellipse::ellipse(S[1:3,1:3],centre=c(xbar[1],xbar[3]),t=c/sqrt(n)),
+     type="l",xlab="Ciencias sociales e Historia ",ylab="Prueba Ciencias")
+
+#elipse para prueba verbal y Ciencia
+
+plot(ellipse::ellipse(S[2:3,2:3],centre=c(xbar[2],xbar[3]),t=c/sqrt(n)),
+     type="l",xlab="Prueba Verbal ",ylab="Prueba Ciencias")
+```
+
+
+Construyamos los intervalos de confianza para ciencias
+
+- Intervalo t-student
+```{r}
+t <- qt(alpha/2, df=n-1, lower.tail = F)
+LI_C <- as.numeric(xbar[3]-t*sqrt(S[3,3]/n))
+LS_C <- as.numeric(xbar[3]+t*sqrt(S[3,3]/n))
+cat(LI_C,LS_C)
+```
+
+- Intervalo $T^2$ de Hotelling (Proyección de la ellipse de confianza)
+```{r}
+T2 <- p*(n-1)/(n-p)*qf(alpha, p, n-p, lower.tail = F) # Cuantil de la distribución T^2 de Hotelling 
+LI_C_T <- as.numeric(xbar[3] - sqrt(T2)*sqrt(S[3,3]/n))
+LS_C_T <- as.numeric(xbar[3] + sqrt(T2)*sqrt(S[3,3]/n))
+cat(LI_C_T,LS_C_T)
+```
+
+- Intervalo de confianza usando Bonferroni
+
+```{r}
+alpha_B <- alpha/p
+t <- qt(alpha_B/2, df=n-1, lower.tail = F)
+LI_C_B <- as.numeric(xbar[3]-t*sqrt(S[3,3]/n))
+LS_C_B <- as.numeric(xbar[3]+t*sqrt(S[3,3]/n))
+cat(LI_C_B,LS_C_B)
+
+```
+
+
+```{r}
+intervalos_ciencias <- t(data.frame(c(LI_C,LS_C),
+           c(LI_C_T,LS_C_T),
+           c(LI_C_B,LS_C_B)))
+
+rownames(intervalos_ciencias) <-c("Intervalo t studet",
+                                  "Intervalo T de Hotelling",
+                                  "Intervalo Bonferroni")
+colnames(intervalos_ciencias)<- c("LI", "LS")
+intervalos_ciencias
+```
+
+Comparaciones de los intervalos de confianza con la elipse de confianza para la prueba de ciencias
+
+```{r}
+plot(ellipse::ellipse(S[2:3,2:3],centre=c(xbar[2],xbar[3]),t=c/sqrt(n)),
+     type="l",xlab="Prueba Verbal ",ylab="Prueba Ciencias")
+
+abline(h=c(LI_C_T,LS_C_T), col="red")
+abline(h=c(LI_C,LS_C), col="blue")
+abline(h=c(LI_C_B,LS_C_B), col="purple")
+
+```
+
+Ahora queremos saber si el puntaje promedio en la prueba de ciencias es mayor que el puntaje promedio que la prueba verbal.
+
+Para esto construimos un intervalo de confianza para $\mu_2-\mu_3$
+
+Construyamos el intervalo usando $T^2$ de Hotelling
+
+```{r}
+LI <-(xbar[2]-xbar[3])-sqrt(T2*(S[2,2]+S[3,3]-2*S[2,3])/n)
+LS <-(xbar[2]-xbar[3])+sqrt(T2*(S[2,2]+S[3,3]-2*S[2,3])/n)
+cat(LI,LS)
+```
+
+Notemos que el intervalo anterior contiene solo valores positivos, por lo que podemos concluir, con una significancia del 5\% que $\mu_2-\mu_3>0$ es decir $\mu_2>\mu_3$ la puntuación promedio en la prueba verbal es mayor que la puntuación promedio en la prueba de ciencias.
