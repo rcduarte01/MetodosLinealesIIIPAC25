@@ -1,0 +1,98 @@
+---
+title: "Ejemplo aguas residuales (Comparaciones por parejas)"
+output: html_notebook
+---
+Las plantas de tratamiento de aguas residuales municipales están obligadas por ley a monitorear sus descargas en ríos y arroyos de manera regular. La preocupación por la fiabilidad de los datos de uno de estos programas de auto monitoreo llevó a un estudio en el que las muestras de efluente se dividieron y se enviaron a dos laboratorios para su análisis. La mitad de cada muestra se envió al Laboratorio de Higiene del Estado de Wisconsin, y la otra mitad se envió a un laboratorio comercial privado que se utiliza de manera rutinaria en el programa de monitoreo. Se obtuvieron mediciones de demanda bioquímica de oxígeno (DBO) y sólidos suspendidos (SS) para 11 divisiones de muestras de los dos laboratorios. Los datos se muestran a continuación
+
+```{r, echo=FALSE}
+effluent_data <- data.frame(
+  muestra=1:11,
+  BOD1 = c(6, 6, 18, 8, 11, 34, 28, 71, 43, 33, 20),
+  SS1 = c(27, 23, 64, 44, 30, 75, 26, 124, 54, 30, 14),
+  BOD2 = c(25, 28, 36, 35, 15, 44, 42, 54, 34, 29, 39),
+  SS2 = c(15, 13, 22, 29, 31, 64, 30, 64, 56, 20, 21)
+)
+
+effluent_data
+```
+
+Queremos saber si existen diferencias significativas entre los análisis de ambos laboratiorios y de ser así, cuales son esas diferencias.
+
+$H_0:\boldsymbol{\delta}=(0,0)^t$ vs $H_1:\boldsymbol{\delta}\neq(0,0)^t$
+
+Necesitamos tomar las diferencias de cada muestra en cada grupo
+
+```{r}
+library(tidyverse)
+mutate(effluent_data, BOD_diff=BOD1-BOD2)
+select(effluent_data, SS2)
+```
+
+
+```{r}
+effluent_data <- effluent_data %>%
+  mutate(BOD_diff=BOD1-BOD2,SSdiff = SS1-SS2) 
+
+dbar <- colMeans(effluent_data[,6:7])
+dbar
+
+Sd <- cov(effluent_data[,6:7])
+Sd
+```
+
+Necesitamos calcular la estadística de prueba 
+```{r}
+n <- 11
+p <- 2
+delta_0 <- c(0,0)
+Tcuad_p <- n*t((dbar-delta_0))%*%solve(Sd)%*%(dbar-delta_0)
+Tcuad_p
+```
+
+
+Ahora necesitamos calcular el valor crítico, con un nivel de confianza de $\alpha=0.05$
+
+```{r}
+alpha <- 0.05
+Tcuad_c <- (n-1)*p/(n-p)*qf(0.05, p, n-p, lower.tail = F)
+Tcuad_c
+```
+
+La región de rechazo es: $\{T^2:T^2 > Tc\}=\{T^2:T^2 > 9.46\}$, como el $T^2$ de prueba es `r Tcuad_p`, entonces rechazamos $H_0$, y concluimos que existen diferencias significativas entre los resultados del laboratorio.
+
+Construyamos la elipse de confianza
+
+```{r}
+c <- sqrt( (n-1)*p/(n-p)*qf(0.05, p, n-p, lower.tail = F) )
+plot(ellipse::ellipse(Sd,
+                      centre=dbar,
+                      t=c/sqrt(n)),
+     type="l",xlab="demanda bioquímica de oxígeno (BOD)",
+     ylab="Sólidos suspendidos(SS)")
+points(x=0,y=0,col="red")
+```
+
+
+Ahora construyamos los intervalos de confianza simultaneos
+
+```{r}
+LIBOD <- dbar[1]-c*sqrt(Sd[1,1]/n)
+LSBOD <- dbar[1]+c*sqrt(Sd[1,1]/n)
+
+
+LISS <- dbar[2]-c*sqrt(Sd[2,2]/n)
+LSSS <- dbar[2]+c*sqrt(Sd[2,2]/n)
+cat("Intervalo para BOD_diff",LIBOD,LSBOD)
+cat("\nIntervalo para SS_diff",LISS,LSSS)
+```
+
+
+```{r}
+plot(ellipse::ellipse(Sd,
+                      centre=dbar,
+                      t=c/sqrt(n)),
+     type="l",xlab="demanda bioquímica de oxígeno (BOD)",
+     ylab="Sólidos suspendidos(SS)")
+abline(v=c(LIBOD,LSBOD), col="red")
+abline(h=c(LISS,LSSS), col="red")
+```
